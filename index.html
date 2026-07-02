@@ -1,0 +1,695 @@
+<!doctype html>
+<!--
+  ResQue QRC — Live Dashboard v3 · "Icy" edition
+  ───────────────────────────────────────────────
+  Look: light frost background, huge display type, dark navy text —
+  matching the reference the team picked. Simple words everywhere.
+
+  Static site — deploy to Vercel / GitHub Pages as-is.
+  SETUP: edit the 4 CONFIG lines at the top of the <script>.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>ResQue — Quantum Weather Forecasting, Live</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/apexcharts@3.54.1/dist/apexcharts.min.js"></script>
+<style>
+:root{
+  --bg:#E9EDF2; --bg2:#F4F6F9; --card:#FFFFFF;
+  --ink:#0B0E1A; --muted:#5A6373; --faint:#98A0AE;
+  --line:#D8DDE5; --blue:#2653F0; --blue-soft:#E4EAFE;
+  --green:#0E9F6E; --ghost:rgba(11,14,26,.055);
+  --radius:18px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{
+  background:var(--bg); color:var(--ink);
+  font-family:Inter,system-ui,sans-serif; font-size:15px; line-height:1.6;
+}
+.display{font-family:"Archivo Black",Inter,sans-serif;letter-spacing:-.01em}
+.mono{font-family:"JetBrains Mono",monospace}
+.wrap{max-width:1220px;margin:0 auto;padding:0 22px}
+
+/* ── Header ── */
+header{position:sticky;top:0;z-index:50;background:rgba(233,237,242,.85);backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
+.nav{display:flex;align-items:center;gap:14px;height:64px}
+.logo{font-family:"Archivo Black";font-size:1.05rem;letter-spacing:.02em}
+.logo span{color:var(--blue)}
+.nav .spacer{flex:1}
+.pill{display:flex;align-items:center;gap:8px;font-size:.78rem;font-weight:500;color:var(--muted);
+  border:1px solid var(--line);border-radius:99px;padding:7px 14px;background:var(--card)}
+.dot{width:8px;height:8px;border-radius:50%}
+.dot.live{background:var(--green);animation:pulse 2s infinite}
+.dot.idle{background:var(--faint)}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(14,159,110,.45)}70%{box-shadow:0 0 0 8px rgba(14,159,110,0)}100%{box-shadow:0 0 0 0 rgba(14,159,110,0)}}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+.btn{font:inherit;font-size:.83rem;font-weight:600;cursor:pointer;border-radius:12px;padding:10px 18px;
+  border:1px solid var(--ink);background:transparent;color:var(--ink);transition:all .15s}
+.btn:hover{background:var(--ink);color:#fff}
+.btn.primary{background:var(--ink);color:#fff;border-color:var(--ink)}
+.btn.primary:hover{background:var(--blue);border-color:var(--blue)}
+.btn:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+
+/* ── Hero with giant type ── */
+.hero{position:relative;padding:64px 0 30px;overflow:hidden}
+.mega{
+  font-family:"Archivo Black";
+  font-size:clamp(4.2rem,17vw,13.5rem);
+  line-height:.86;color:var(--ink);letter-spacing:-.02em;
+  position:relative;z-index:1;
+}
+.mega .ghost{color:transparent;-webkit-text-stroke:2px rgba(11,14,26,.18)}
+.hero .kick{font-size:.75rem;font-weight:700;letter-spacing:.22em;text-transform:uppercase;color:var(--blue);margin-bottom:14px}
+.hero-row{display:flex;gap:32px;align-items:flex-end;flex-wrap:wrap;margin-top:22px}
+.hero-copy{max-width:520px;color:var(--muted);font-size:1rem}
+.hero-copy b{color:var(--ink)}
+.hero .actions{display:flex;gap:10px;margin-top:20px;flex-wrap:wrap}
+.hero .aside{
+  margin-left:auto;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+  padding:18px 20px;min-width:250px;flex:0 1 300px;
+}
+.aside .row{display:flex;justify-content:space-between;gap:14px;padding:7px 0;border-bottom:1px dashed var(--line);font-size:.85rem}
+.aside .row:last-child{border-bottom:none}
+.aside .row b{font-weight:700}
+
+/* ── Simple steps strip ── */
+.steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin:34px 0 8px}
+.step{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px}
+.step .n{font-family:"Archivo Black";font-size:1.5rem;color:var(--blue)}
+.step b{display:block;margin:6px 0 3px;font-size:.9rem}
+.step p{font-size:.8rem;color:var(--muted)}
+
+/* ── Sections ── */
+section{padding:34px 0 6px}
+.sec-head{display:flex;align-items:center;gap:14px;margin-bottom:16px;flex-wrap:wrap}
+.sec-head h2{font-family:"Archivo Black";font-size:clamp(1.4rem,3vw,2rem);letter-spacing:-.01em}
+.sec-head .sub{color:var(--muted);font-size:.85rem}
+.sec-head .why{margin-left:auto}
+
+.grid{display:grid;gap:16px}
+.grid.metrics{grid-template-columns:repeat(auto-fit,minmax(230px,1fr))}
+.grid.charts{grid-template-columns:repeat(auto-fit,minmax(min(470px,100%),1fr))}
+
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:20px 22px;position:relative;transition:box-shadow .2s}
+.card:hover{box-shadow:0 8px 30px rgba(11,14,26,.06)}
+.card .label{font-size:.7rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.card .value{font-family:"Archivo Black";font-size:1.85rem;margin-top:8px}
+.card .value.blue{color:var(--blue)}
+.card .sub{font-size:.78rem;color:var(--muted);margin-top:4px}
+.card-head{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.card-head h3{font-size:1rem;font-weight:700}
+.card-head .why{margin-left:auto}
+.why{width:26px;height:26px;border-radius:50%;border:1.5px solid var(--line);background:var(--bg2);
+  color:var(--muted);cursor:pointer;font-size:.78rem;font-weight:700;display:grid;place-items:center;flex:none;transition:all .15s}
+.why:hover{color:#fff;background:var(--blue);border-color:var(--blue)}
+.chart-slot{min-height:270px;display:grid;place-items:center}
+.waiting{color:var(--faint);font-size:.85rem;text-align:center}
+.spinner{width:22px;height:22px;border-radius:50%;border:2.5px solid var(--line);border-top-color:var(--blue);animation:spin 1s linear infinite;margin:0 auto 10px}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── Tables ── */
+table{width:100%;border-collapse:collapse;font-size:.88rem}
+th{text-align:left;font-size:.68rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:700;
+  padding:10px 12px;border-bottom:2px solid var(--ink)}
+td{padding:12px;border-bottom:1px solid var(--line)}
+tr:last-child td{border-bottom:none}
+tr.qrc td{background:var(--blue-soft)}
+.tag{font-size:.64rem;font-weight:800;letter-spacing:.08em;padding:3px 9px;border-radius:99px;
+  background:var(--blue);color:#fff;vertical-align:middle;margin-left:8px}
+.rank1{color:var(--green);font-weight:800}
+.num{font-family:"JetBrains Mono";font-size:.84rem}
+
+/* ── Modal ── */
+.modal-bg{position:fixed;inset:0;z-index:100;background:rgba(11,14,26,.45);backdrop-filter:blur(4px);display:none;place-items:center;padding:20px}
+.modal-bg.open{display:grid}
+.modal{max-width:520px;width:100%;max-height:82vh;overflow:auto;background:var(--card);border-radius:22px;padding:28px 30px;border:1px solid var(--line)}
+.modal .kicker{font-size:.7rem;letter-spacing:.18em;text-transform:uppercase;color:var(--blue);font-weight:800}
+.modal h3{font-family:"Archivo Black";font-size:1.25rem;margin:6px 0 4px}
+.modal p{color:var(--muted);font-size:.92rem;margin-top:12px}
+.modal p b{color:var(--ink)}
+.modal .close{float:right;margin-left:12px}
+.modal .takeaway{margin-top:16px;padding:14px 16px;border-radius:14px;font-size:.88rem;font-weight:500;
+  background:var(--blue-soft);border:1px solid #C7D4FC;color:var(--ink)}
+
+/* ── Tour ── */
+.tour-highlight{position:relative;z-index:96;box-shadow:0 0 0 3px var(--blue),0 12px 44px rgba(38,83,240,.25)!important;border-radius:var(--radius)}
+.tour-dim{position:fixed;inset:0;z-index:95;background:rgba(11,14,26,.5);display:none}
+.tour-dim.open{display:block}
+.tour-card{position:fixed;z-index:97;max-width:350px;width:calc(100% - 32px);background:var(--card);
+  border:1px solid var(--line);border-radius:18px;padding:22px;display:none;box-shadow:0 18px 60px rgba(11,14,26,.18)}
+.tour-card.open{display:block}
+.tour-card .tstep{font-size:.68rem;letter-spacing:.16em;text-transform:uppercase;color:var(--blue);font-weight:800}
+.tour-card h4{font-family:"Archivo Black";font-size:1.05rem;margin:6px 0 8px}
+.tour-card p{color:var(--muted);font-size:.87rem}
+.tour-card .tnav{display:flex;gap:8px;margin-top:16px}
+.tour-card .tnav .spacer{flex:1}
+
+footer{padding:36px 0 46px;color:var(--faint);font-size:.8rem;border-top:1px solid var(--line);margin-top:40px}
+
+/* ── Live weather panel ── */
+.weather{
+  margin-top:30px;background:var(--ink);color:#fff;border-radius:var(--radius);
+  padding:22px 24px;position:relative;overflow:hidden;
+}
+.weather::after{ /* soft frost glow */
+  content:"";position:absolute;inset:auto -60px -110px auto;width:280px;height:280px;border-radius:50%;
+  background:radial-gradient(circle,rgba(38,83,240,.5),transparent 70%);pointer-events:none;
+}
+.weather-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.weather-head .wtitle{font-family:"Archivo Black";font-size:1rem;letter-spacing:.02em}
+.weather-head .wsub{color:rgba(255,255,255,.55);font-size:.78rem}
+.weather-head .why{margin-left:auto;background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.2);color:rgba(255,255,255,.7)}
+.weather-grid{display:grid;grid-template-columns:auto repeat(4,1fr);gap:18px;align-items:center;margin-top:16px}
+.wnow{display:flex;align-items:center;gap:14px;padding-right:18px;border-right:1px solid rgba(255,255,255,.14)}
+.wnow .wicon{width:52px;height:52px;flex:none}
+.wnow .wtemp{font-family:"Archivo Black";font-size:2.2rem;line-height:1}
+.wnow .wdesc{font-size:.78rem;color:rgba(255,255,255,.6)}
+.wstat{display:flex;align-items:center;gap:11px}
+.wstat .wicon{width:30px;height:30px;flex:none;opacity:.9}
+.wstat .wv{font-family:"JetBrains Mono";font-size:1.02rem;font-weight:600}
+.wstat .wl{font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.5)}
+.wicon{stroke:#7EA0FF;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.wicon .sun{stroke:#FFD466}
+.weather .wfoot{margin-top:14px;font-size:.72rem;color:rgba(255,255,255,.45)}
+.weather .wfoot b{color:rgba(255,255,255,.8)}
+
+/* ── Responsive ── */
+@media(max-width:1000px){
+  .weather-grid{grid-template-columns:1fr 1fr}
+  .wnow{grid-column:1 / -1;border-right:none;border-bottom:1px solid rgba(255,255,255,.14);padding:0 0 14px}
+}
+@media(max-width:820px){
+  .grid.charts{grid-template-columns:1fr}
+  .hero .aside{margin-left:0;flex:1 1 100%}
+}
+@media(max-width:640px){
+  .hero{padding-top:34px}
+  .mega{font-size:clamp(3.2rem,20vw,5rem)}
+  .card .value{font-size:1.4rem}
+  .hide-sm{display:none}
+  th,td{padding:8px 6px;font-size:.8rem}
+  .card{padding:16px}
+  .grid.metrics{grid-template-columns:1fr 1fr}
+  .sec-head h2{font-size:1.3rem}
+  .steps{grid-template-columns:1fr 1fr}
+  .weather-grid{grid-template-columns:1fr 1fr;gap:14px}
+  .btn{padding:9px 14px;font-size:.78rem}
+  #table-h6,#table-h24{overflow-x:auto}
+}
+@media(max-width:400px){
+  .grid.metrics{grid-template-columns:1fr}
+  .steps{grid-template-columns:1fr}
+  .weather-grid{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap nav">
+    <div class="logo">Res<span>Que</span></div>
+    <div class="spacer"></div>
+    <div class="pill" id="status-pill"><span class="dot idle" id="live-dot"></span><span id="live-text">connecting…</span></div>
+    <span class="pill hide-sm mono" id="last-updated" style="font-size:.72rem">—</span>
+    <button class="btn primary" id="btn-tour">Take the tour →</button>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- HERO -->
+  <div class="hero" id="hero">
+    <div class="kick">Live · Quantum weather forecasting · Addis Ababa</div>
+    <div class="mega">QUANTUM<br><span class="ghost">FORECAST</span></div>
+    <div class="hero-row">
+      <div>
+        <p class="hero-copy">
+          A small <b>quantum computer (simulated)</b> is learning to predict real weather —
+          temperature, humidity, pressure and wind — and racing against normal AI models.
+          <b>This page updates by itself</b> while the experiment runs.
+        </p>
+        <div class="actions">
+          <button class="btn" onclick="openModal('qrc')">What is this project?</button>
+          <button class="btn" onclick="openModal('read')">How do I read this page?</button>
+        </div>
+      </div>
+      <div class="aside" id="fact-box">
+        <div class="row"><span>Place</span><b>Addis Ababa, Ethiopia</b></div>
+        <div class="row"><span>Data</span><b>7 years, NOAA weather</b></div>
+        <div class="row"><span>Quantum size</span><b>9 qubits</b></div>
+        <div class="row"><span>Hardware</span><b>Simulator (PennyLane)</b></div>
+        <div class="row"><span>Competition</span><b>GIC 2026 · Track B</b></div>
+      </div>
+    </div>
+
+    <!-- How it works, in 5 tiny steps -->
+    <div class="steps" id="steps">
+      <div class="step"><div class="n">1</div><b>Feed it weather</b><p>5 days of real data goes into the quantum system.</p></div>
+      <div class="step"><div class="n">2</div><b>Let physics mix it</b><p>The qubits interact and transform the data — no training needed.</p></div>
+      <div class="step"><div class="n">3</div><b>Measure</b><p>We read numbers out of the quantum system.</p></div>
+      <div class="step"><div class="n">4</div><b>Predict</b><p>A simple formula turns those numbers into a forecast.</p></div>
+      <div class="step"><div class="n">5</div><b>Compare</b><p>Same test for the AI models. Best forecast wins.</p></div>
+    </div>
+
+    <!-- LIVE WEATHER — the four things the model predicts -->
+    <div class="weather" id="weather-panel">
+      <div class="weather-head">
+        <span class="wtitle">ADDIS ABABA · RIGHT NOW</span>
+        <span class="wsub" id="weather-time">loading live weather…</span>
+        <button class="why" onclick="openModal('weather')" aria-label="Explain">?</button>
+      </div>
+      <div class="weather-grid">
+        <div class="wnow">
+          <svg class="wicon" id="wnow-icon" viewBox="0 0 24 24"><circle class="sun" cx="12" cy="12" r="4.5"/><path class="sun" d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M18.4 5.6L17 7M7 17l-1.4 1.4"/></svg>
+          <div>
+            <div class="wtemp"><span id="w-temp">—</span>°C</div>
+            <div class="wdesc" id="w-desc">—</div>
+          </div>
+        </div>
+        <div class="wstat">
+          <svg class="wicon" viewBox="0 0 24 24"><path d="M12 3.5s5.5 6.2 5.5 10a5.5 5.5 0 0 1-11 0c0-3.8 5.5-10 5.5-10z"/></svg>
+          <div><div class="wv"><span id="w-hum">—</span>%</div><div class="wl">Humidity</div></div>
+        </div>
+        <div class="wstat">
+          <svg class="wicon" viewBox="0 0 24 24"><circle cx="12" cy="13" r="7.5"/><path d="M12 13l3.2-3.2M9 4.5h6"/></svg>
+          <div><div class="wv"><span id="w-pres">—</span> hPa</div><div class="wl">Pressure</div></div>
+        </div>
+        <div class="wstat">
+          <svg class="wicon" viewBox="0 0 24 24"><path d="M3 8h9.5a2.5 2.5 0 1 0-2.4-3.2M3 12h13.5a2.5 2.5 0 1 1-2.4 3.2M3 16h7.5a2 2 0 1 1-1.9 2.6"/></svg>
+          <div><div class="wv"><span id="w-wind">—</span> m/s</div><div class="wl">Wind</div></div>
+        </div>
+        <div class="wstat">
+          <svg class="wicon" viewBox="0 0 24 24"><path d="M17.5 18a4 4 0 0 0 .6-7.95A6 6 0 0 0 6.4 8.6 4.5 4.5 0 0 0 7 17.5z"/></svg>
+          <div><div class="wv" id="w-cloud">—</div><div class="wl">Sky</div></div>
+        </div>
+      </div>
+      <div class="wfoot">These four numbers — <b>temperature, humidity, pressure, wind</b> — are exactly what the quantum model learns to predict.</div>
+    </div>
+  </div>
+
+  <!-- METRICS -->
+  <section id="sec-metrics">
+    <div class="sec-head"><h2>Right now</h2><div class="sub">the latest numbers from the experiment</div></div>
+    <div class="grid metrics">
+      <div class="card" id="card-ham">
+        <div class="card-head"><span class="label">Best settings (J, h)</span><button class="why" onclick="openModal('hamiltonian')" aria-label="Explain">?</button></div>
+        <div class="value blue mono" id="m-hamiltonian">—</div>
+        <div class="sub" id="m-hamiltonian-sub">waiting…</div>
+      </div>
+      <div class="card">
+        <div class="card-head"><span class="label">Best noise level</span><button class="why" onclick="openModal('noise')" aria-label="Explain">?</button></div>
+        <div class="value mono" id="m-noise">—</div>
+        <div class="sub" id="m-noise-sub">waiting…</div>
+      </div>
+      <div class="card">
+        <div class="card-head"><span class="label">Winner · 6-hour forecast</span><button class="why" onclick="openModal('leaderboard')" aria-label="Explain">?</button></div>
+        <div class="value" id="m-best6">—</div>
+        <div class="sub" id="m-best6-sub">waiting…</div>
+      </div>
+      <div class="card">
+        <div class="card-head"><span class="label">Winner · 24-hour forecast</span><button class="why" onclick="openModal('leaderboard')" aria-label="Explain">?</button></div>
+        <div class="value" id="m-best24">—</div>
+        <div class="sub" id="m-best24-sub">waiting…</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SWEEPS -->
+  <section id="sec-sweeps">
+    <div class="sec-head"><h2>Tuning the quantum system</h2><div class="sub">we test many settings — the lowest point on each chart wins</div></div>
+    <div class="grid charts">
+      <div class="card" id="card-heatmap">
+        <div class="card-head"><h3>Finding the best settings</h3><button class="why" onclick="openModal('hamiltonian')" aria-label="Explain">?</button></div>
+        <div class="chart-slot" id="chart-heatmap"><div><div class="spinner"></div><div class="waiting">waiting for data…</div></div></div>
+      </div>
+      <div class="card">
+        <div class="card-head"><h3>Does a little noise help?</h3><button class="why" onclick="openModal('noise')" aria-label="Explain">?</button></div>
+        <div class="chart-slot" id="chart-noise"><div><div class="spinner"></div><div class="waiting">waiting for data…</div></div></div>
+      </div>
+      <div class="card">
+        <div class="card-head"><h3>Do more qubits help?</h3><button class="why" onclick="openModal('qubits')" aria-label="Explain">?</button></div>
+        <div class="chart-slot" id="chart-qubits"><div><div class="spinner"></div><div class="waiting">waiting for data…</div></div></div>
+      </div>
+      <div class="card">
+        <div class="card-head"><h3>How many measurements are enough?</h3><button class="why" onclick="openModal('shots')" aria-label="Explain">?</button></div>
+        <div class="chart-slot" id="chart-shots"><div><div class="spinner"></div><div class="waiting">waiting for data…</div></div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- LEADERBOARDS -->
+  <section id="sec-leader">
+    <div class="sec-head">
+      <h2>Quantum vs AI</h2>
+      <div class="sub">same data, same rules — blue rows are the quantum model</div>
+      <button class="why" onclick="openModal('leaderboard')" aria-label="Explain">?</button>
+    </div>
+    <div class="grid charts">
+      <div class="card" id="card-h6">
+        <div class="card-head"><h3>6 hours ahead</h3></div>
+        <div id="table-h6"><div class="chart-slot"><div><div class="spinner"></div><div class="waiting">waiting for results…</div></div></div></div>
+      </div>
+      <div class="card">
+        <div class="card-head"><h3>24 hours ahead</h3></div>
+        <div id="table-h24"><div class="chart-slot"><div><div class="spinner"></div><div class="waiting">waiting for results…</div></div></div></div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    ResQue · GIC 2026 Track B · Weather data: NOAA station 63450099999 (Addis Ababa Bole) ·
+    Quantum simulation: PennyLane · Updates every <span id="poll-label">60</span>s ·
+    <span id="data-source-badge">demo data</span>
+  </footer>
+</main>
+
+<!-- Explainer modal -->
+<div class="modal-bg" id="modal-bg" onclick="if(event.target===this)closeModal()">
+  <div class="modal" role="dialog" aria-modal="true">
+    <button class="btn close" onclick="closeModal()">✕</button>
+    <div class="kicker" id="modal-kicker"></div>
+    <h3 id="modal-title"></h3>
+    <div id="modal-body"></div>
+  </div>
+</div>
+
+<!-- Tour -->
+<div class="tour-dim" id="tour-dim"></div>
+<div class="tour-card" id="tour-card">
+  <div class="tstep" id="tour-step-label"></div>
+  <h4 id="tour-title"></h4>
+  <p id="tour-text"></p>
+  <div class="tnav">
+    <button class="btn" onclick="endTour()">Skip</button>
+    <span class="spacer"></span>
+    <button class="btn" id="tour-prev" onclick="tourMove(-1)">Back</button>
+    <button class="btn primary" id="tour-next" onclick="tourMove(1)">Next</button>
+  </div>
+</div>
+
+<script>
+/* ═══════════ CONFIG — edit these four lines ═══════════ */
+const GITHUB_USER  = "YOUR_GITHUB_USERNAME";
+const REPO         = "resque-qrc";
+const BRANCH       = "main";
+const RESULTS_PATH = "outputs/results";
+const POLL_SECONDS = 60;
+/* ══════════════════════════════════════════════════════ */
+const BASE = `https://raw.githubusercontent.com/${GITHUB_USER}/${REPO}/${BRANCH}/${RESULTS_PATH}`;
+document.getElementById("poll-label").textContent = POLL_SECONDS;
+
+/* ── Explainers — short words, short sentences ── */
+const EXPLAINERS = {
+  qrc:{kicker:"The project", title:"What is this?", body:`
+    <p>Normal AI learns by adjusting <b>millions of numbers</b>, over and over. That takes a lot of time and power.</p>
+    <p>This project tries a shortcut. We put weather data into a small <b>quantum system</b> — 9 qubits.
+    The qubits mix the data in a very rich way, <b>just by following physics</b>. No training needed on the quantum side.</p>
+    <p>Then one simple formula turns the result into a forecast.</p>
+    <p>Everything runs on a <b>simulator</b> — a normal computer pretending to be a quantum one.
+    So anyone can re-run it and get the same numbers.</p>
+    <div class="takeaway">The big question: can 9 tiny qubits + one simple formula beat a fully-trained AI at predicting weather?</div>`},
+  read:{kicker:"Guide", title:"How to read this page", body:`
+    <p>Every chart uses one score: <b>error</b>. It measures how far the forecast was from the real weather.</p>
+    <p><b>Lower error = better.</b> That's the only rule you need.</p>
+    <p>The middle section shows us <b>tuning</b> the quantum system — testing settings and keeping the best.</p>
+    <p>The bottom section is the <b>race</b>: quantum vs AI models, same data, same rules. Blue rows are quantum.</p>
+    <p>The green dot at the top means this page is reading <b>fresh results</b> from the running experiment.</p>
+    <div class="takeaway">In a hurry? Look at the "Right now" cards, then the race tables at the bottom.</div>`},
+  hamiltonian:{kicker:"Tuning", title:"Finding the best settings", body:`
+    <p>The quantum system has two dials:</p>
+    <p><b>J</b> — how strongly the qubits talk to each other.<br>
+       <b>h</b> — how strongly an outside push tries to flip them.</p>
+    <p>Too much J: the system gets stiff and boring. Too much h: it gets wild and forgets everything.
+    The best spot is <b>in between</b> — lively, but not chaotic.</p>
+    <p>The grid shows the error for every combination we tried. The ★ marks the winner.</p>
+    <div class="takeaway">Every experiment after this one uses the ★ settings.</div>`},
+  noise:{kicker:"Tuning", title:"Does a little noise help?", body:`
+    <p>Real quantum computers are <b>noisy</b> — they randomly lose bits of information. Sounds bad, right?</p>
+    <p>Surprise: for forecasting, a <b>little</b> noise can actually help. It makes the system slowly forget old data —
+    which is exactly right for weather. Yesterday matters. Last month doesn't.</p>
+    <p>So we add controlled amounts of noise and watch the error.</p>
+    <div class="takeaway">If the line dips below its starting point, noisy quantum hardware would be a feature, not a bug.</div>`},
+  qubits:{kicker:"Tuning", title:"Do more qubits help?", body:`
+    <p>Every extra qubit <b>doubles</b> the space the system can think in.
+    5 qubits = 32 dimensions. 20 qubits = over a million.</p>
+    <p>More space should mean better forecasts — until the extra space stops being useful for this task.</p>
+    <p>This chart shows where "more quantum" helps, and where it flattens out.</p>
+    <div class="takeaway">A falling line is good news for quantum. A flat line means the task is the limit, not the machine.</div>`},
+  shots:{kicker:"Tuning", title:"How many measurements are enough?", body:`
+    <p>You can't just <b>look</b> at a quantum system. You measure it, get one random answer, and repeat.
+    Each repeat is called a <b>shot</b>.</p>
+    <p>Few shots = blurry picture, cheap. Many shots = sharp picture, expensive
+    (on real hardware, shots cost real time and money).</p>
+    <p>This chart finds the smallest number of shots that still gives good forecasts.</p>
+    <div class="takeaway">Where the line goes flat = the cheapest budget that still works.</div>`},
+  weather:{kicker:"Live data", title:"The weather right now", body:`
+    <p>This panel shows the <b>real weather in Addis Ababa at this moment</b>, from a free public
+    weather service (Open-Meteo). It refreshes every 10 minutes.</p>
+    <p>Why is it here? Because these four numbers — temperature, humidity, pressure, wind —
+    are <b>exactly the four things our quantum model predicts</b>. The experiment trains on
+    7 years of this same data from the airport weather station.</p>
+    <div class="takeaway">What you see here is the target. Everything below is the machine learning to hit it.</div>`},
+  leaderboard:{kicker:"The race", title:"Quantum vs AI", body:`
+    <p>Every model gets <b>exactly the same data</b> and the same preparation. No one gets an advantage.</p>
+    <p>Two challenges: predict the weather <b>6 hours</b> ahead, and <b>24 hours</b> ahead.</p>
+    <p>Who's racing?<br>
+    <b>Persistence</b> — "tomorrow = today". The bar everyone must beat.<br>
+    <b>LSTM / GRU</b> — modern deep-learning AI.<br>
+    <b>ESN</b> — the classical twin of our quantum system. The fairest head-to-head.<br>
+    <b>QRC</b> — our quantum model (blue rows).</p>
+    <p><b>VPT</b> is a bonus score: how long the forecast stays trustworthy. Higher is better.</p>
+    <div class="takeaway">Watch QRC vs ESN — that gap shows what the quantum part really adds.</div>`}
+};
+function openModal(key){
+  const e=EXPLAINERS[key]; if(!e) return;
+  document.getElementById("modal-kicker").textContent=e.kicker;
+  document.getElementById("modal-title").textContent=e.title;
+  document.getElementById("modal-body").innerHTML=e.body;
+  document.getElementById("modal-bg").classList.add("open");
+}
+function closeModal(){document.getElementById("modal-bg").classList.remove("open")}
+document.addEventListener("keydown",e=>{if(e.key==="Escape"){closeModal();endTour()}});
+
+/* ── Tour — short and friendly ── */
+const TOUR=[
+  {el:"hero",title:"Hi 👋",text:"A simulated quantum computer is predicting real weather for Addis Ababa. This 40-second tour shows you how to read the page."},
+  {el:"steps",title:"How it works",text:"Five steps: feed it weather → physics mixes it → measure → predict → compare with AI. That's the whole project."},
+  {el:"weather-panel",title:"The real weather, live",text:"This is Addis Ababa right now — real data, refreshed every 10 minutes. These four numbers are exactly what the quantum model learns to predict."},
+  {el:"status-pill",title:"The green dot",text:"Green = this page is reading fresh results from the running experiment. It checks every minute by itself."},
+  {el:"sec-metrics",title:"The latest numbers",text:"Best settings found so far, and who's currently winning each forecast race. Tap any ? for a simple explanation."},
+  {el:"card-heatmap",title:"The tuning grid",text:"Each square is one full test of the quantum system. The ★ is the best combination found."},
+  {el:"sec-leader",title:"The race",text:"Quantum vs AI, same data, same rules. Blue rows are the quantum model. Lower error wins."},
+  {el:"btn-tour",title:"That's it!",text:"Tap any ? button whenever something is unclear. The tables re-sort themselves as new results arrive. Enjoy ⚛"}
+];
+let tourIdx=-1;
+function startTour(){tourIdx=0;showTourStep()}
+function tourMove(d){tourIdx+=d;if(tourIdx<0)tourIdx=0;if(tourIdx>=TOUR.length){endTour();return}showTourStep()}
+function endTour(){
+  document.querySelectorAll(".tour-highlight").forEach(x=>x.classList.remove("tour-highlight"));
+  document.getElementById("tour-dim").classList.remove("open");
+  document.getElementById("tour-card").classList.remove("open");
+  tourIdx=-1;
+}
+function showTourStep(){
+  document.querySelectorAll(".tour-highlight").forEach(x=>x.classList.remove("tour-highlight"));
+  const step=TOUR[tourIdx], el=document.getElementById(step.el);
+  el.classList.add("tour-highlight");
+  el.scrollIntoView({behavior:"smooth",block:"center"});
+  document.getElementById("tour-dim").classList.add("open");
+  const card=document.getElementById("tour-card");
+  card.classList.add("open");
+  document.getElementById("tour-step-label").textContent=`Step ${tourIdx+1} of ${TOUR.length}`;
+  document.getElementById("tour-title").textContent=step.title;
+  document.getElementById("tour-text").textContent=step.text;
+  document.getElementById("tour-prev").style.visibility=tourIdx===0?"hidden":"visible";
+  document.getElementById("tour-next").textContent=tourIdx===TOUR.length-1?"Finish":"Next";
+  setTimeout(()=>{
+    const r=el.getBoundingClientRect();
+    if(window.innerWidth<700){card.style.left="16px";card.style.right="16px";card.style.top="auto";card.style.bottom="16px"}
+    else{
+      card.style.bottom="auto";
+      card.style.left=Math.min(Math.max(r.left,16),window.innerWidth-382)+"px";
+      card.style.top=(r.bottom+14>window.innerHeight-220?Math.max(r.top-230,16):r.bottom+14)+"px";
+    }
+  },350);
+}
+document.getElementById("btn-tour").addEventListener("click",startTour);
+if(!localStorage.getItem("resque_toured")){setTimeout(startTour,1200);localStorage.setItem("resque_toured","1")}
+
+/* ── Data ── */
+const DEMO={
+  hamiltonian:`J,h,val_rmse
+0.1,0.1,1.2992\n0.1,0.3,1.2968\n0.1,0.5,1.2873\n0.1,0.8,1.2792\n0.1,1.0,1.3482
+0.3,0.1,1.3214\n0.3,0.3,1.3185\n0.3,0.5,1.3186\n0.3,0.8,1.2594\n0.3,1.0,1.3670
+0.5,0.1,1.3403\n0.5,0.3,1.3423\n0.5,0.5,1.3506\n0.5,0.8,1.3156\n0.5,1.0,1.3314
+0.8,0.1,1.3222\n0.8,0.3,1.3254\n0.8,0.5,1.3372\n0.8,0.8,1.3382\n0.8,1.0,1.2736
+1.0,0.1,1.3405\n1.0,0.3,1.3348\n1.0,0.5,1.3354\n1.0,0.8,1.3335\n1.0,1.0,1.2923
+1.2,0.1,1.3399\n1.2,0.3,1.3385\n1.2,0.5,1.3201\n1.2,0.8,1.3060\n1.2,1.0,1.3140
+1.5,0.1,1.3050\n1.5,0.3,1.2974\n1.5,0.5,1.2781\n1.5,0.8,1.2761\n1.5,1.0,1.2906
+2.0,0.1,1.3502\n2.0,0.3,1.3528\n2.0,0.5,1.3318\n2.0,0.8,1.3142\n2.0,1.0,1.3030`,
+  bestHam:{J_star:0.3,h_star:0.8,val_rmse:1.2594,n_qubits:9}
+};
+let usingDemo=true;
+function parseCSV(t){
+  const lines=t.trim().split(/\r?\n/), head=lines[0].split(",");
+  return lines.slice(1).filter(Boolean).map(l=>{
+    const c=l.split(","), row={};
+    head.forEach((h,i)=>{const v=c[i];row[h]=(v===""||isNaN(v))?v:parseFloat(v)});
+    return row;
+  });
+}
+async function fetchText(n){const r=await fetch(`${BASE}/${n}?t=${Date.now()}`,{cache:"no-store"});if(!r.ok)throw new Error(n);return r.text()}
+async function fetchJSON(n){return JSON.parse(await fetchText(n))}
+
+/* ── Charts (light theme) ── */
+const charts={};
+const AXIS={labels:{style:{colors:"#5A6373"}}};
+const BASE_OPTS={
+  chart:{background:"transparent",toolbar:{show:false},animations:{enabled:false},fontFamily:"Inter"},
+  grid:{borderColor:"#E2E6EC",strokeDashArray:4},
+  tooltip:{theme:"light"}
+};
+function renderLine(elId,categories,data,xTitle){
+  const opts={...BASE_OPTS,
+    chart:{...BASE_OPTS.chart,type:"area",height:260},
+    series:[{name:"error",data}],
+    xaxis:{categories,title:{text:xTitle,style:{color:"#5A6373",fontWeight:600}},...AXIS},
+    yaxis:{decimalsInFloat:3,...AXIS},
+    stroke:{width:3,curve:"smooth"},
+    colors:["#2653F0"],
+    fill:{type:"gradient",gradient:{shadeIntensity:.5,opacityFrom:.22,opacityTo:.02}},
+    markers:{size:4,colors:["#2653F0"],strokeColors:"#fff"},
+    dataLabels:{enabled:false}
+  };
+  if(charts[elId]){charts[elId].updateOptions({xaxis:{categories}});charts[elId].updateSeries(opts.series)}
+  else{document.getElementById(elId).innerHTML="";charts[elId]=new ApexCharts(document.getElementById(elId),opts);charts[elId].render()}
+}
+function renderHeatmap(rows,best){
+  const Js=[...new Set(rows.map(r=>r.J))].sort((a,b)=>a-b);
+  const Hs=[...new Set(rows.map(r=>r.h))].sort((a,b)=>a-b);
+  const series=Js.map(J=>({name:`J=${J}`,data:Hs.map(h=>{
+    const rec=rows.find(r=>r.J===J&&r.h===h);
+    return {x:`h=${h}`,y:rec?+rec.val_rmse.toFixed(4):null};
+  })}));
+  const opts={...BASE_OPTS,
+    chart:{...BASE_OPTS.chart,type:"heatmap",height:300},
+    series,
+    plotOptions:{heatmap:{shadeIntensity:.7,radius:5,colorScale:{inverse:true}}},
+    colors:["#2653F0"],
+    dataLabels:{enabled:true,style:{fontSize:"9.5px",fontFamily:"JetBrains Mono",colors:["#0B0E1A"]}},
+    xaxis:AXIS,yaxis:AXIS,
+    tooltip:{...BASE_OPTS.tooltip,y:{formatter:v=>`error ${v}`}}
+  };
+  const elId="chart-heatmap";
+  if(charts[elId]){charts[elId].updateSeries(series)}
+  else{document.getElementById(elId).innerHTML="";charts[elId]=new ApexCharts(document.getElementById(elId),opts);charts[elId].render()}
+  if(best){
+    document.getElementById("m-hamiltonian").textContent=`(${best.J_star}, ${best.h_star})`;
+    document.getElementById("m-hamiltonian-sub").textContent=`error ${(+best.val_rmse).toFixed(4)} · ${best.n_qubits??"?"} qubits ★`;
+  }
+}
+function renderLeaderboard(rows,slotId,mId,subId){
+  rows.sort((a,b)=>a.test_rmse_mean-b.test_rmse_mean);
+  const html=`<table><thead><tr><th>#</th><th>Model</th><th>Error ↓</th><th title="How long the forecast stays trustworthy — higher is better">Trust time ↑</th></tr></thead><tbody>`+
+    rows.map((r,i)=>{
+      const isQ=/qrc/i.test(r.model);
+      return `<tr class="${isQ?"qrc":""}">
+        <td class="${i===0?"rank1":""}">${i===0?"🏆":i+1}</td>
+        <td>${r.model}${isQ?'<span class="tag">QUANTUM</span>':''}</td>
+        <td class="num">${(+r.test_rmse_mean).toFixed(4)}</td>
+        <td class="num">${r.vpt_lyapunov??"—"}</td></tr>`;
+    }).join("")+"</tbody></table>";
+  document.getElementById(slotId).innerHTML=html;
+  const best=rows[0];
+  if(best){
+    document.getElementById(mId).textContent=best.model;
+    document.getElementById(subId).textContent=`error ${(+best.test_rmse_mean).toFixed(4)}`;
+  }
+}
+function setLive(live,demo){
+  document.getElementById("live-dot").className="dot "+(live?"live":"idle");
+  document.getElementById("live-text").textContent=live?"live":"waiting for repo";
+  document.getElementById("last-updated").textContent=new Date().toLocaleTimeString();
+  document.getElementById("data-source-badge").textContent=demo?"demo data (repo not linked yet)":"live data";
+}
+
+async function refresh(){
+  let anyLive=false;
+  try{
+    const [csv,best]=await Promise.all([fetchText("hamiltonian_sweep.csv"),fetchJSON("best_hamiltonian.json").catch(()=>null)]);
+    renderHeatmap(parseCSV(csv),best);anyLive=true;usingDemo=false;
+  }catch(e){if(usingDemo)renderHeatmap(parseCSV(DEMO.hamiltonian),DEMO.bestHam)}
+  const specs=[
+    {file:"noise_sweep.csv",el:"chart-noise",xre:/p|noise/i,xt:"amount of noise",metric:true},
+    {file:"qubit_scaling.csv",el:"chart-qubits",xre:/qubit/i,xt:"number of qubits"},
+    {file:"shot_ablation.csv",el:"chart-shots",xre:/shot/i,xt:"measurements (shots)"}
+  ];
+  for(const s of specs){
+    try{
+      const rows=parseCSV(await fetchText(s.file));
+      const xk=Object.keys(rows[0]).find(k=>s.xre.test(k));
+      const yk=Object.keys(rows[0]).find(k=>/rmse/i.test(k));
+      renderLine(s.el,rows.map(r=>r[xk]),rows.map(r=>+r[yk].toFixed(4)),s.xt);
+      anyLive=true;
+      if(s.metric){
+        const best=rows.reduce((a,b)=>a[yk]<b[yk]?a:b);
+        document.getElementById("m-noise").textContent=best[xk];
+        document.getElementById("m-noise-sub").textContent=`error ${(+best[yk]).toFixed(4)}`;
+      }
+    }catch(e){}
+  }
+  try{renderLeaderboard(parseCSV(await fetchText("results_h6.csv")),"table-h6","m-best6","m-best6-sub");anyLive=true}catch(e){}
+  try{renderLeaderboard(parseCSV(await fetchText("results_h24.csv")),"table-h24","m-best24","m-best24-sub");anyLive=true}catch(e){}
+  setLive(anyLive&&!usingDemo,usingDemo);
+}
+refresh();
+setInterval(refresh,POLL_SECONDS*1000);
+
+/* ── Live weather · Open-Meteo (free, no key) — Addis Ababa Bole ── */
+const WCODES={
+  0:["Clear sky","sun"],1:["Mostly clear","sun"],2:["Partly cloudy","cloud"],3:["Overcast","cloud"],
+  45:["Foggy","cloud"],48:["Foggy","cloud"],
+  51:["Light drizzle","rain"],53:["Drizzle","rain"],55:["Heavy drizzle","rain"],
+  61:["Light rain","rain"],63:["Rain","rain"],65:["Heavy rain","rain"],
+  66:["Freezing rain","rain"],67:["Freezing rain","rain"],
+  71:["Light snow","cloud"],73:["Snow","cloud"],75:["Heavy snow","cloud"],
+  80:["Rain showers","rain"],81:["Rain showers","rain"],82:["Heavy showers","rain"],
+  95:["Thunderstorm","storm"],96:["Thunderstorm","storm"],99:["Thunderstorm","storm"]
+};
+const ICONS={
+  sun:`<circle class="sun" cx="12" cy="12" r="4.5"/><path class="sun" d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M18.4 5.6L17 7M7 17l-1.4 1.4"/>`,
+  cloud:`<path d="M17.5 18a4 4 0 0 0 .6-7.95A6 6 0 0 0 6.4 8.6 4.5 4.5 0 0 0 7 17.5z"/>`,
+  rain:`<path d="M17.5 15a4 4 0 0 0 .6-7.95A6 6 0 0 0 6.4 5.6 4.5 4.5 0 0 0 7 14.5z"/><path d="M8 18l-1 2.5M12 18l-1 2.5M16 18l-1 2.5"/>`,
+  storm:`<path d="M17.5 14a4 4 0 0 0 .6-7.95A6 6 0 0 0 6.4 4.6 4.5 4.5 0 0 0 7 13.5z"/><path class="sun" d="M12.5 13.5L10 18h3l-1.5 3.5"/>`
+};
+async function loadWeather(){
+  try{
+    const u="https://api.open-meteo.com/v1/forecast?latitude=8.978&longitude=38.799"+
+      "&current=temperature_2m,relative_humidity_2m,surface_pressure,wind_speed_10m,weather_code,cloud_cover"+
+      "&wind_speed_unit=ms&timezone=Africa%2FAddis_Ababa";
+    const r=await fetch(u,{cache:"no-store"});
+    if(!r.ok)throw new Error("weather");
+    const c=(await r.json()).current;
+    document.getElementById("w-temp").textContent=Math.round(c.temperature_2m);
+    document.getElementById("w-hum").textContent=Math.round(c.relative_humidity_2m);
+    document.getElementById("w-pres").textContent=Math.round(c.surface_pressure);
+    document.getElementById("w-wind").textContent=(+c.wind_speed_10m).toFixed(1);
+    document.getElementById("w-cloud").textContent=Math.round(c.cloud_cover)+"% cloud";
+    const [desc,icon]=WCODES[c.weather_code]||["—","cloud"];
+    document.getElementById("w-desc").textContent=desc;
+    document.getElementById("wnow-icon").innerHTML=ICONS[icon];
+    document.getElementById("weather-time").textContent=
+      "live · "+new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})+" your time · Open-Meteo";
+  }catch(e){
+    document.getElementById("weather-time").textContent="weather feed unavailable — check connection";
+  }
+}
+loadWeather();
+setInterval(loadWeather,10*60*1000);
+</script>
+</body>
+</html>
