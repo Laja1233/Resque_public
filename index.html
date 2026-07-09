@@ -1,18 +1,24 @@
 <!doctype html>
 <!--
-  ResQue QRC — Live Dashboard v3 · "Icy" edition
+  ResQue QRC — Live Dashboard v4 · "Icy" edition
   ───────────────────────────────────────────────
-  Look: light frost background, huge display type, dark navy text —
-  matching the reference the team picked. Simple words everywhere.
+  Bound to the ACTUAL results/ folder produced by the run:
+    results/hamiltonian_sweep.csv        (J,h,val_rmse)          → heatmap
+    results/best_hamiltonian.json        (J_star,h_star,...)     → best-settings card
+    results/h6|h24/readout_selection.json (lambda sweep)         → readout chart
+    results/h6|h24/warm_start_qrc_config.json                    → reservoir config
+    results/results_h6.csv / results_h24.csv                     → leaderboards + per-target chart
+  Ablations that were NOT run (noise / qubit-scaling / shots) now show an honest
+  "not in this run" state instead of an endless spinner.
 
   Static site — deploy to Vercel / GitHub Pages as-is.
-  SETUP: edit the 4 CONFIG lines at the top of the <script>.
+  SETUP: edit the CONFIG lines at the top of the <script>.
 -->
 <html lang="en">
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>ResQue — Quantum Weather Forecasting, Live</title>
+<title>ResQue · Quantum Weather Forecasting, Live</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/apexcharts@3.54.1/dist/apexcharts.min.js"></script>
@@ -21,7 +27,8 @@
   --bg:#E9EDF2; --bg2:#F4F6F9; --card:#FFFFFF;
   --ink:#0B0E1A; --muted:#5A6373; --faint:#98A0AE;
   --line:#D8DDE5; --blue:#2653F0; --blue-soft:#E4EAFE;
-  --green:#0E9F6E; --ghost:rgba(11,14,26,.055);
+  --green:#0E9F6E; --amber:#C77A0A; --amber-soft:#FBEED6;
+  --ghost:rgba(11,14,26,.055);
   --radius:18px;
 }
 *{box-sizing:border-box;margin:0;padding:0}
@@ -99,6 +106,7 @@ section{padding:34px 0 6px}
 .card .label{font-size:.7rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
 .card .value{font-family:"Archivo Black";font-size:1.85rem;margin-top:8px}
 .card .value.blue{color:var(--blue)}
+.card .value.small{font-size:1.35rem}
 .card .sub{font-size:.78rem;color:var(--muted);margin-top:4px}
 .card-head{display:flex;align-items:center;gap:8px;margin-bottom:8px}
 .card-head h3{font-size:1rem;font-weight:700}
@@ -110,6 +118,19 @@ section{padding:34px 0 6px}
 .waiting{color:var(--faint);font-size:.85rem;text-align:center}
 .spinner{width:22px;height:22px;border-radius:50%;border:2.5px solid var(--line);border-top-color:var(--blue);animation:spin 1s linear infinite;margin:0 auto 10px}
 @keyframes spin{to{transform:rotate(360deg)}}
+
+/* honest empty state for experiments that were not run */
+.notrun{text-align:center;color:var(--muted);max-width:280px}
+.notrun .badge{display:inline-block;font-size:.62rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--amber);background:var(--amber-soft);border:1px solid #EBD8B0;border-radius:99px;padding:4px 11px;margin-bottom:10px}
+.notrun p{font-size:.82rem}
+
+/* config read-out list */
+.kv{display:flex;flex-direction:column;gap:0}
+.kv .row{display:flex;justify-content:space-between;gap:14px;padding:9px 2px;border-bottom:1px dashed var(--line);font-size:.86rem}
+.kv .row:last-child{border-bottom:none}
+.kv .row span{color:var(--muted)}
+.kv .row b{font-family:"JetBrains Mono";font-weight:600}
 
 /* ── Tables ── */
 table{width:100%;border-collapse:collapse;font-size:.88rem}
@@ -155,7 +176,7 @@ footer{padding:36px 0 46px;color:var(--faint);font-size:.8rem;border-top:1px sol
   margin-top:30px;background:var(--ink);color:#fff;border-radius:var(--radius);
   padding:22px 24px;position:relative;overflow:hidden;
 }
-.weather::after{ /* soft frost glow */
+.weather::after{
   content:"";position:absolute;inset:auto -60px -110px auto;width:280px;height:280px;border-radius:50%;
   background:radial-gradient(circle,rgba(38,83,240,.5),transparent 70%);pointer-events:none;
 }
@@ -228,9 +249,10 @@ footer{padding:36px 0 46px;color:var(--faint);font-size:.8rem;border-top:1px sol
     <div class="hero-row">
       <div>
         <p class="hero-copy">
-          A small <b>quantum computer (simulated)</b> is learning to predict real weather —
-          temperature, humidity, pressure and wind — and racing against normal AI models.
-          <b>This page updates by itself</b> while the experiment runs.
+          A small <b>quantum reservoir (simulated)</b> is put to work predicting real weather,
+          temperature, humidity, pressure and wind, and raced against standard AI models.
+          <b>This page updates by itself</b> while the experiment runs, and shows the real
+          scores either way.
         </p>
         <div class="actions">
           <button class="btn" onclick="openModal('qrc')">What is this project?</button>
@@ -240,7 +262,7 @@ footer{padding:36px 0 46px;color:var(--faint);font-size:.8rem;border-top:1px sol
       <div class="aside" id="fact-box">
         <div class="row"><span>Place</span><b>Addis Ababa, Ethiopia</b></div>
         <div class="row"><span>Data</span><b>7 years, NOAA weather</b></div>
-        <div class="row"><span>Quantum size</span><b>9 qubits</b></div>
+        <div class="row"><span>Reservoir</span><b>9 qubits · chain</b></div>
         <div class="row"><span>Hardware</span><b>Simulator (PennyLane)</b></div>
         <div class="row"><span>Competition</span><b>GIC 2026 · Track B</b></div>
       </div>
@@ -248,11 +270,11 @@ footer{padding:36px 0 46px;color:var(--faint);font-size:.8rem;border-top:1px sol
 
     <!-- How it works, in 5 tiny steps -->
     <div class="steps" id="steps">
-      <div class="step"><div class="n">1</div><b>Feed it weather</b><p>5 days of real data goes into the quantum system.</p></div>
-      <div class="step"><div class="n">2</div><b>Let physics mix it</b><p>The qubits interact and transform the data — no training needed.</p></div>
+      <div class="step"><div class="n">1</div><b>Feed it weather</b><p>Real past weather goes into the quantum system.</p></div>
+      <div class="step"><div class="n">2</div><b>Let physics mix it</b><p>The qubits interact and transform the data. The reservoir itself is not trained.</p></div>
       <div class="step"><div class="n">3</div><b>Measure</b><p>We read numbers out of the quantum system.</p></div>
-      <div class="step"><div class="n">4</div><b>Predict</b><p>A simple formula turns those numbers into a forecast.</p></div>
-      <div class="step"><div class="n">5</div><b>Compare</b><p>Same test for the AI models. Best forecast wins.</p></div>
+      <div class="step"><div class="n">4</div><b>Predict</b><p>A simple trained formula turns those numbers into a forecast.</p></div>
+      <div class="step"><div class="n">5</div><b>Compare</b><p>Same test for the AI models. Lowest error wins.</p></div>
     </div>
 
     <!-- LIVE WEATHER — the four things the model predicts -->
@@ -287,7 +309,7 @@ footer{padding:36px 0 46px;color:var(--faint);font-size:.8rem;border-top:1px sol
           <div><div class="wv" id="w-cloud">—</div><div class="wl">Sky</div></div>
         </div>
       </div>
-      <div class="wfoot">These four numbers — <b>temperature, humidity, pressure, wind</b> — are exactly what the quantum model learns to predict.</div>
+      <div class="wfoot">These four numbers, <b>temperature, humidity, pressure and wind</b>, are exactly what the models learn to predict.</div>
     </div>
   </div>
 
@@ -301,9 +323,9 @@ footer{padding:36px 0 46px;color:var(--faint);font-size:.8rem;border-top:1px sol
         <div class="sub" id="m-hamiltonian-sub">waiting…</div>
       </div>
       <div class="card">
-        <div class="card-head"><span class="label">Best noise level</span><button class="why" onclick="openModal('noise')" aria-label="Explain">?</button></div>
-        <div class="value mono" id="m-noise">—</div>
-        <div class="sub" id="m-noise-sub">waiting…</div>
+        <div class="card-head"><span class="label">Reservoir</span><button class="why" onclick="openModal('config')" aria-label="Explain">?</button></div>
+        <div class="value small mono" id="m-reservoir">—</div>
+        <div class="sub" id="m-reservoir-sub">waiting…</div>
       </div>
       <div class="card">
         <div class="card-head"><span class="label">Winner · 6-hour forecast</span><button class="why" onclick="openModal('leaderboard')" aria-label="Explain">?</button></div>
@@ -318,25 +340,25 @@ footer{padding:36px 0 46px;color:var(--faint);font-size:.8rem;border-top:1px sol
     </div>
   </section>
 
-  <!-- SWEEPS -->
+  <!-- TUNING / DIAGNOSTICS -->
   <section id="sec-sweeps">
-    <div class="sec-head"><h2>Tuning the quantum system</h2><div class="sub">we test many settings — the lowest point on each chart wins</div></div>
+    <div class="sec-head"><h2>Inside the quantum system</h2><div class="sub">what was tuned, and where the model wins or loses</div></div>
     <div class="grid charts">
       <div class="card" id="card-heatmap">
         <div class="card-head"><h3>Finding the best settings</h3><button class="why" onclick="openModal('hamiltonian')" aria-label="Explain">?</button></div>
         <div class="chart-slot" id="chart-heatmap"><div><div class="spinner"></div><div class="waiting">waiting for data…</div></div></div>
       </div>
-      <div class="card">
-        <div class="card-head"><h3>Does a little noise help?</h3><button class="why" onclick="openModal('noise')" aria-label="Explain">?</button></div>
-        <div class="chart-slot" id="chart-noise"><div><div class="spinner"></div><div class="waiting">waiting for data…</div></div></div>
+      <div class="card" id="card-target">
+        <div class="card-head"><h3>Error per weather variable (6h)</h3><button class="why" onclick="openModal('target')" aria-label="Explain">?</button></div>
+        <div class="chart-slot" id="chart-target"><div><div class="spinner"></div><div class="waiting">waiting for data…</div></div></div>
       </div>
-      <div class="card">
-        <div class="card-head"><h3>Do more qubits help?</h3><button class="why" onclick="openModal('qubits')" aria-label="Explain">?</button></div>
-        <div class="chart-slot" id="chart-qubits"><div><div class="spinner"></div><div class="waiting">waiting for data…</div></div></div>
+      <div class="card" id="card-readout">
+        <div class="card-head"><h3>Tuning the readout (6h)</h3><button class="why" onclick="openModal('readout')" aria-label="Explain">?</button></div>
+        <div class="chart-slot" id="chart-readout"><div><div class="spinner"></div><div class="waiting">waiting for data…</div></div></div>
       </div>
-      <div class="card">
-        <div class="card-head"><h3>How many measurements are enough?</h3><button class="why" onclick="openModal('shots')" aria-label="Explain">?</button></div>
-        <div class="chart-slot" id="chart-shots"><div><div class="spinner"></div><div class="waiting">waiting for data…</div></div></div>
+      <div class="card" id="card-config">
+        <div class="card-head"><h3>Run configuration</h3><button class="why" onclick="openModal('config')" aria-label="Explain">?</button></div>
+        <div id="config-slot" class="chart-slot"><div><div class="spinner"></div><div class="waiting">waiting for data…</div></div></div>
       </div>
     </div>
   </section>
@@ -345,7 +367,7 @@ footer{padding:36px 0 46px;color:var(--faint);font-size:.8rem;border-top:1px sol
   <section id="sec-leader">
     <div class="sec-head">
       <h2>Quantum vs AI</h2>
-      <div class="sub">same data, same rules — blue rows are the quantum model</div>
+      <div class="sub">same data, same rules. Blue rows are the quantum model</div>
       <button class="why" onclick="openModal('leaderboard')" aria-label="Explain">?</button>
     </div>
     <div class="grid charts">
@@ -392,77 +414,86 @@ footer{padding:36px 0 46px;color:var(--faint);font-size:.8rem;border-top:1px sol
 </div>
 
 <script>
-/* ═══════════ CONFIG — edit these four lines ═══════════ */
+/* ═══════════ CONFIG — edit these lines ═══════════ */
 const GITHUB_USER  = "Laja1233";
 const REPO         = "Resque_public";
 const BRANCH       = "main";
 const RESULTS_PATH = "results";
 const POLL_SECONDS = 60;
-/* ══════════════════════════════════════════════════════ */
+/* ══════════════════════════════════════════════════ */
 const BASE = `https://raw.githubusercontent.com/${GITHUB_USER}/${REPO}/${BRANCH}/${RESULTS_PATH}`;
 document.getElementById("poll-label").textContent = POLL_SECONDS;
+
+/* pretty names for models in the leaderboards */
+const MODEL_NAMES={
+  arima:"ARIMA", lstm:"LSTM", gru:"GRU", esn:"ESN",
+  persistence:"Persistence", warm_start_qrc:"QRC (warm start)", cold_start_qrc:"QRC (cold start)"
+};
+const prettyModel=m=>MODEL_NAMES[m]||m;
+const isQuantum=m=>/qrc/i.test(m);
 
 /* ── Explainers — short words, short sentences ── */
 const EXPLAINERS = {
   qrc:{kicker:"The project", title:"What is this?", body:`
     <p>Normal AI learns by adjusting <b>millions of numbers</b>, over and over. That takes a lot of time and power.</p>
-    <p>This project tries a shortcut. We put weather data into a small <b>quantum system</b> — 9 qubits.
-    The qubits mix the data in a very rich way, <b>just by following physics</b>. No training needed on the quantum side.</p>
-    <p>Then one simple formula turns the result into a forecast.</p>
-    <p>Everything runs on a <b>simulator</b> — a normal computer pretending to be a quantum one.
-    So anyone can re-run it and get the same numbers.</p>
-    <div class="takeaway">The big question: can 9 tiny qubits + one simple formula beat a fully-trained AI at predicting weather?</div>`},
+    <p>This project tries a shortcut. We put weather data into a small <b>quantum system</b> of 9 qubits.
+    The qubits mix the data in a very rich way, <b>just by following physics</b>. The quantum part itself is never trained.</p>
+    <p>Then one simple trained formula turns the result into a forecast.</p>
+    <p>Everything runs on a <b>simulator</b>, which is a normal computer that copies how a quantum one behaves.
+    So anyone can run it again and get the same numbers.</p>
+    <div class="takeaway">The honest question is whether 9 small qubits and one simple formula can keep up with a trained AI at predicting weather. This page shows the real answer, win or lose.</div>`},
   read:{kicker:"Guide", title:"How to read this page", body:`
     <p>Every chart uses one score: <b>error</b>. It measures how far the forecast was from the real weather.</p>
     <p><b>Lower error = better.</b> That's the only rule you need.</p>
-    <p>The middle section shows us <b>tuning</b> the quantum system — testing settings and keeping the best.</p>
+    <p>The middle section shows what was <b>tuned</b> and where the model does well or badly on each weather variable.</p>
     <p>The bottom section is the <b>race</b>: quantum vs AI models, same data, same rules. Blue rows are quantum.</p>
     <p>The green dot at the top means this page is reading <b>fresh results</b> from the running experiment.</p>
     <div class="takeaway">In a hurry? Look at the "Right now" cards, then the race tables at the bottom.</div>`},
   hamiltonian:{kicker:"Tuning", title:"Finding the best settings", body:`
     <p>The quantum system has two dials:</p>
-    <p><b>J</b> — how strongly the qubits talk to each other.<br>
-       <b>h</b> — how strongly an outside push tries to flip them.</p>
-    <p>Too much J: the system gets stiff and boring. Too much h: it gets wild and forgets everything.
-    The best spot is <b>in between</b> — lively, but not chaotic.</p>
-    <p>The grid shows the error for every combination we tried. The ★ marks the winner.</p>
-    <div class="takeaway">Every experiment after this one uses the ★ settings.</div>`},
-  noise:{kicker:"Tuning", title:"Does a little noise help?", body:`
-    <p>Real quantum computers are <b>noisy</b> — they randomly lose bits of information. Sounds bad, right?</p>
-    <p>Surprise: for forecasting, a <b>little</b> noise can actually help. It makes the system slowly forget old data —
-    which is exactly right for weather. Yesterday matters. Last month doesn't.</p>
-    <p>So we add controlled amounts of noise and watch the error.</p>
-    <div class="takeaway">If the line dips below its starting point, noisy quantum hardware would be a feature, not a bug.</div>`},
-  qubits:{kicker:"Tuning", title:"Do more qubits help?", body:`
-    <p>Every extra qubit <b>doubles</b> the space the system can think in.
-    5 qubits = 32 dimensions. 20 qubits = over a million.</p>
-    <p>More space should mean better forecasts — until the extra space stops being useful for this task.</p>
-    <p>This chart shows where "more quantum" helps, and where it flattens out.</p>
-    <div class="takeaway">A falling line is good news for quantum. A flat line means the task is the limit, not the machine.</div>`},
-  shots:{kicker:"Tuning", title:"How many measurements are enough?", body:`
-    <p>You can't just <b>look</b> at a quantum system. You measure it, get one random answer, and repeat.
-    Each repeat is called a <b>shot</b>.</p>
-    <p>Few shots = blurry picture, cheap. Many shots = sharp picture, expensive
-    (on real hardware, shots cost real time and money).</p>
-    <p>This chart finds the smallest number of shots that still gives good forecasts.</p>
-    <div class="takeaway">Where the line goes flat = the cheapest budget that still works.</div>`},
+    <p><b>J</b> sets how strongly the qubits affect each other.<br>
+       <b>h</b> sets how strongly an outside push tries to flip them.</p>
+    <p>Too much J and the system gets stiff and dull. Too much h and it gets wild and forgets everything.
+    The best spot sits <b>in between</b>, lively but not chaotic.</p>
+    <p>The grid shows the error for every pair we tried. The darkest square is the winner.</p>
+    <div class="takeaway">This run's winner was J = 0.3 and h = 0.8, on 9 qubits.</div>`},
+  target:{kicker:"Diagnosis", title:"Error per weather variable", body:`
+    <p>The overall score hides <b>where</b> a model does well or badly. This chart breaks the 6-hour error
+    into the four things being predicted, in their real units (°C, %, hPa, m/s).</p>
+    <p>It compares the <b>quantum model</b> against the <b>best classical model</b> for the same time ahead.</p>
+    <p>Watch the pressure bar. If one model is much taller there, that one variable is pulling its whole score down.</p>
+    <div class="takeaway">Reading the bars tells you the real story better than one averaged number can.</div>`},
+  readout:{kicker:"Tuning", title:"Tuning the readout", body:`
+    <p>The quantum reservoir is fixed. The only thing we <b>train</b> is a small linear "readout" that turns
+    measurements into a forecast.</p>
+    <p>That readout has one main setting called <b>lambda (λ)</b>, the amount of regularisation. Higher λ keeps the
+    formula simple. Lower λ lets it fit harder.</p>
+    <p>This chart sweeps λ and shows the validation error for each value.</p>
+    <div class="takeaway">If the line is nearly flat, the readout barely reacts to λ. That means the reservoir sets the score, not this setting.</div>`},
+  config:{kicker:"Setup", title:"Run configuration", body:`
+    <p>These are the exact settings the winning quantum model ran with, read straight from the results folder.</p>
+    <p><b>Qubits</b> is the size of the reservoir. <b>J</b> and <b>h</b> are the two dials from the tuning grid.
+    <b>Trotter steps</b> is how finely the physics is simulated. <b>Noise</b> and <b>shots</b> control the simulator.</p>
+    <p>In this run the noise is 0 and shots is set to exact, so the reservoir was simulated fully and not sampled.</p>
+    <div class="takeaway">This is what makes the result reproducible. Same config in, same numbers out.</div>`},
   weather:{kicker:"Live data", title:"The weather right now", body:`
     <p>This panel shows the <b>real weather in Addis Ababa at this moment</b>, from a free public
     weather service (Open-Meteo). It refreshes every 10 minutes.</p>
-    <p>Why is it here? Because these four numbers — temperature, humidity, pressure, wind —
-    are <b>exactly the four things our quantum model predicts</b>. The experiment trains on
+    <p>Why is it here? Because these four numbers, temperature, humidity, pressure and wind,
+    are <b>exactly the four things the models predict</b>. The experiment trains on
     7 years of this same data from the airport weather station.</p>
-    <div class="takeaway">What you see here is the target. Everything below is the machine learning to hit it.</div>`},
+    <div class="takeaway">What you see here is the target. Everything below is the model learning to reach it.</div>`},
   leaderboard:{kicker:"The race", title:"Quantum vs AI", body:`
     <p>Every model gets <b>exactly the same data</b> and the same preparation. No one gets an advantage.</p>
-    <p>Two challenges: predict the weather <b>6 hours</b> ahead, and <b>24 hours</b> ahead.</p>
-    <p>Who's racing?<br>
-    <b>Persistence</b> — "tomorrow = today". The bar everyone must beat.<br>
-    <b>LSTM / GRU</b> — modern deep-learning AI.<br>
-    <b>ESN</b> — the classical twin of our quantum system. The fairest head-to-head.<br>
-    <b>QRC</b> — our quantum model (blue rows).</p>
-    <p><b>VPT</b> is a bonus score: how long the forecast stays trustworthy. Higher is better.</p>
-    <div class="takeaway">Watch QRC vs ESN — that gap shows what the quantum part really adds.</div>`}
+    <p>There are two tests. Predict the weather <b>6 hours</b> ahead, and predict it <b>24 hours</b> ahead.</p>
+    <p>Who is taking part?<br>
+    <b>Persistence</b> says tomorrow will match today. Every model has to do better than this.<br>
+    <b>ARIMA</b> is a classic statistics forecaster.<br>
+    <b>LSTM and GRU</b> are modern deep-learning models.<br>
+    <b>ESN</b> is the closest classical match to the quantum reservoir, so it gives the fairest one on one.<br>
+    <b>QRC</b> is the quantum model, shown in the blue rows.</p>
+    <p><b>Trust time</b> is a second score. It measures how long the forecast stays trustworthy. Higher is better.</p>
+    <div class="takeaway">Compare QRC and ESN. The gap between them shows what the quantum part actually changes, for better or worse.</div>`}
 };
 function openModal(key){
   const e=EXPLAINERS[key]; if(!e) return;
@@ -476,12 +507,13 @@ document.addEventListener("keydown",e=>{if(e.key==="Escape"){closeModal();endTou
 
 /* ── Tour — short and friendly ── */
 const TOUR=[
-  {el:"hero",title:"Hi 👋",text:"A simulated quantum computer is predicting real weather for Addis Ababa. This 40-second tour shows you how to read the page."},
-  {el:"steps",title:"How it works",text:"Five steps: feed it weather → physics mixes it → measure → predict → compare with AI. That's the whole project."},
-  {el:"weather-panel",title:"The real weather, live",text:"This is Addis Ababa right now — real data, refreshed every 10 minutes. These four numbers are exactly what the quantum model learns to predict."},
+  {el:"hero",title:"Hi 👋",text:"A simulated quantum computer is predicting real weather for Addis Ababa. This short tour shows you how to read the page."},
+  {el:"steps",title:"How it works",text:"Five steps. Feed it weather, let physics mix it, measure, predict, then compare with AI. That's the whole project."},
+  {el:"weather-panel",title:"The real weather, live",text:"This is Addis Ababa right now, with real data refreshed every 10 minutes. These four numbers are exactly what the models learn to predict."},
   {el:"status-pill",title:"The green dot",text:"Green = this page is reading fresh results from the running experiment. It checks every minute by itself."},
-  {el:"sec-metrics",title:"The latest numbers",text:"Best settings found so far, and who's currently winning each forecast race. Tap any ? for a simple explanation."},
-  {el:"card-heatmap",title:"The tuning grid",text:"Each square is one full test of the quantum system. The ★ is the best combination found."},
+  {el:"sec-metrics",title:"The latest numbers",text:"Best settings found so far, the reservoir size, and who is currently ahead in each forecast. Tap any ? for a simple explanation."},
+  {el:"card-heatmap",title:"The tuning grid",text:"Each square is one full test of the quantum system. The darkest square is the best combination found."},
+  {el:"card-target",title:"Where it wins or loses",text:"The overall score is one number. This breaks it into the four weather variables so you can see exactly where the quantum model struggles."},
   {el:"sec-leader",title:"The race",text:"Quantum vs AI, same data, same rules. Blue rows are the quantum model. Lower error wins."},
   {el:"btn-tour",title:"That's it!",text:"Tap any ? button whenever something is unclear. The tables re-sort themselves as new results arrive. Enjoy ⚛"}
 ];
@@ -520,7 +552,9 @@ function showTourStep(){
 document.getElementById("btn-tour").addEventListener("click",startTour);
 if(!localStorage.getItem("resque_toured")){setTimeout(startTour,1200);localStorage.setItem("resque_toured","1")}
 
-/* ── Data ── */
+/* ══════════ DEMO DATA — seeded with this run's REAL numbers ══════════
+   Shown only when the repo is not reachable, so the offline preview
+   matches what the live fetch will render. */
 const DEMO={
   hamiltonian:`J,h,val_rmse
 0.1,0.1,1.2992\n0.1,0.3,1.2968\n0.1,0.5,1.2873\n0.1,0.8,1.2792\n0.1,1.0,1.3482
@@ -531,19 +565,52 @@ const DEMO={
 1.2,0.1,1.3399\n1.2,0.3,1.3385\n1.2,0.5,1.3201\n1.2,0.8,1.3060\n1.2,1.0,1.3140
 1.5,0.1,1.3050\n1.5,0.3,1.2974\n1.5,0.5,1.2781\n1.5,0.8,1.2761\n1.5,1.0,1.2906
 2.0,0.1,1.3502\n2.0,0.3,1.3528\n2.0,0.5,1.3318\n2.0,0.8,1.3142\n2.0,1.0,1.3030`,
-  bestHam:{J_star:0.3,h_star:0.8,val_rmse:1.2594,n_qubits:9}
+  bestHam:{J_star:0.3,h_star:0.8,val_rmse:1.2593762874603271,n_qubits:9},
+  config:{n_qubits:9,J:0.3,h:0.8,topology:"chain",trotter_steps:4,evolution_time:1.0,noise_rate:0.0,shots:null,feature_dim:18,readout_strategy:"joint",warm_start:true},
+  readout:[
+    {lambda:1e-5,val_rmse_mean:1.2135731},{lambda:1e-4,val_rmse_mean:1.2135730},
+    {lambda:1e-3,val_rmse_mean:1.2135731},{lambda:1e-2,val_rmse_mean:1.2135735},
+    {lambda:0.1,val_rmse_mean:1.2135768},{lambda:1.0,val_rmse_mean:1.2136139},
+    {lambda:10.0,val_rmse_mean:1.2140014}
+  ],
+  h6:[
+    {model:"arima",test_rmse_mean:0.4793,vpt_lyapunov:139.625,test_rmse_phys_temperature:1.6416,test_rmse_phys_humidity:8.9062,test_rmse_phys_pressure:1.2921,test_rmse_phys_wind_speed:1.2595},
+    {model:"lstm",test_rmse_mean:0.5636,vpt_lyapunov:124.0,test_rmse_phys_temperature:1.8865,test_rmse_phys_humidity:10.9672,test_rmse_phys_pressure:1.8583,test_rmse_phys_wind_speed:1.3679},
+    {model:"gru",test_rmse_mean:0.5777,vpt_lyapunov:122.625,test_rmse_phys_temperature:1.9928,test_rmse_phys_humidity:11.1527,test_rmse_phys_pressure:2.0031,test_rmse_phys_wind_speed:1.3548},
+    {model:"esn",test_rmse_mean:0.685,vpt_lyapunov:87.0,test_rmse_phys_temperature:2.2086,test_rmse_phys_humidity:13.0708,test_rmse_phys_pressure:3.3043,test_rmse_phys_wind_speed:1.4323},
+    {model:"persistence",test_rmse_mean:0.8385,vpt_lyapunov:71.625,test_rmse_phys_temperature:3.8906,test_rmse_phys_humidity:15.9703,test_rmse_phys_pressure:1.6186,test_rmse_phys_wind_speed:1.8795},
+    {model:"warm_start_qrc",test_rmse_mean:1.2117,vpt_lyapunov:0.0,test_rmse_phys_temperature:2.8334,test_rmse_phys_humidity:17.4934,test_rmse_phys_pressure:12.8191,test_rmse_phys_wind_speed:1.5499},
+    {model:"cold_start_qrc",test_rmse_mean:1.2119,vpt_lyapunov:0.0,test_rmse_phys_temperature:2.8337,test_rmse_phys_humidity:17.5044,test_rmse_phys_pressure:12.8204,test_rmse_phys_wind_speed:1.5499}
+  ],
+  h24:[
+    {model:"arima",test_rmse_mean:0.4874,vpt_lyapunov:139.0},
+    {model:"gru",test_rmse_mean:0.6169,vpt_lyapunov:112.125},
+    {model:"lstm",test_rmse_mean:0.6194,vpt_lyapunov:112.875},
+    {model:"persistence",test_rmse_mean:0.6632,vpt_lyapunov:105.375},
+    {model:"esn",test_rmse_mean:0.7052,vpt_lyapunov:83.5},
+    {model:"warm_start_qrc",test_rmse_mean:1.2145,vpt_lyapunov:0.0},
+    {model:"cold_start_qrc",test_rmse_mean:1.2148,vpt_lyapunov:0.0}
+  ]
 };
 let usingDemo=true;
+
+/* ── parsing / fetch ── */
 function parseCSV(t){
   const lines=t.trim().split(/\r?\n/), head=lines[0].split(",");
   return lines.slice(1).filter(Boolean).map(l=>{
     const c=l.split(","), row={};
-    head.forEach((h,i)=>{const v=c[i];row[h]=(v===""||isNaN(v))?v:parseFloat(v)});
+    head.forEach((h,i)=>{const v=c[i];row[h]=(v===""||v==null||isNaN(v))?v:parseFloat(v)});
     return row;
   });
 }
 async function fetchText(n){const r=await fetch(`${BASE}/${n}?t=${Date.now()}`,{cache:"no-store"});if(!r.ok)throw new Error(n);return r.text()}
 async function fetchJSON(n){return JSON.parse(await fetchText(n))}
+
+/* ── empty-state helpers ── */
+function showNotRun(elId,label){
+  const el=document.getElementById(elId); if(!el) return;
+  el.innerHTML=`<div class="notrun"><span class="badge">Not in this run</span><p>${label}</p></div>`;
+}
 
 /* ── Charts (light theme) ── */
 const charts={};
@@ -553,21 +620,11 @@ const BASE_OPTS={
   grid:{borderColor:"#E2E6EC",strokeDashArray:4},
   tooltip:{theme:"light"}
 };
-function renderLine(elId,categories,data,xTitle){
-  const opts={...BASE_OPTS,
-    chart:{...BASE_OPTS.chart,type:"area",height:260},
-    series:[{name:"error",data}],
-    xaxis:{categories,title:{text:xTitle,style:{color:"#5A6373",fontWeight:600}},...AXIS},
-    yaxis:{decimalsInFloat:3,...AXIS},
-    stroke:{width:3,curve:"smooth"},
-    colors:["#2653F0"],
-    fill:{type:"gradient",gradient:{shadeIntensity:.5,opacityFrom:.22,opacityTo:.02}},
-    markers:{size:4,colors:["#2653F0"],strokeColors:"#fff"},
-    dataLabels:{enabled:false}
-  };
-  if(charts[elId]){charts[elId].updateOptions({xaxis:{categories}});charts[elId].updateSeries(opts.series)}
+function mountChart(elId,opts){
+  if(charts[elId]){charts[elId].updateOptions(opts,true,true)}
   else{document.getElementById(elId).innerHTML="";charts[elId]=new ApexCharts(document.getElementById(elId),opts);charts[elId].render()}
 }
+
 function renderHeatmap(rows,best){
   const Js=[...new Set(rows.map(r=>r.J))].sort((a,b)=>a-b);
   const Hs=[...new Set(rows.map(r=>r.h))].sort((a,b)=>a-b);
@@ -575,7 +632,7 @@ function renderHeatmap(rows,best){
     const rec=rows.find(r=>r.J===J&&r.h===h);
     return {x:`h=${h}`,y:rec?+rec.val_rmse.toFixed(4):null};
   })}));
-  const opts={...BASE_OPTS,
+  mountChart("chart-heatmap",{...BASE_OPTS,
     chart:{...BASE_OPTS.chart,type:"heatmap",height:300},
     series,
     plotOptions:{heatmap:{shadeIntensity:.7,radius:5,colorScale:{inverse:true}}},
@@ -583,33 +640,93 @@ function renderHeatmap(rows,best){
     dataLabels:{enabled:true,style:{fontSize:"9.5px",fontFamily:"JetBrains Mono",colors:["#0B0E1A"]}},
     xaxis:AXIS,yaxis:AXIS,
     tooltip:{...BASE_OPTS.tooltip,y:{formatter:v=>`error ${v}`}}
-  };
-  const elId="chart-heatmap";
-  if(charts[elId]){charts[elId].updateSeries(series)}
-  else{document.getElementById(elId).innerHTML="";charts[elId]=new ApexCharts(document.getElementById(elId),opts);charts[elId].render()}
+  });
   if(best){
     document.getElementById("m-hamiltonian").textContent=`(${best.J_star}, ${best.h_star})`;
-    document.getElementById("m-hamiltonian-sub").textContent=`error ${(+best.val_rmse).toFixed(4)} · ${best.n_qubits??"?"} qubits ★`;
+    document.getElementById("m-hamiltonian-sub").textContent=`error ${(+best.val_rmse).toFixed(4)} · ${best.n_qubits??"?"} qubits`;
   }
 }
+
+/* per-target physical error: best quantum vs best classical */
+function renderTargets(rows){
+  if(!rows||!rows.length||!("test_rmse_phys_temperature" in rows[0])){showNotRun("chart-target","Per-variable errors were not saved for this run.");return}
+  const q=rows.filter(r=>isQuantum(r.model)).sort((a,b)=>a.test_rmse_mean-b.test_rmse_mean)[0];
+  const c=rows.filter(r=>!isQuantum(r.model)).sort((a,b)=>a.test_rmse_mean-b.test_rmse_mean)[0];
+  if(!q||!c){showNotRun("chart-target","Need both a quantum and a classical model to compare.");return}
+  const cats=["Temp °C","Humidity %","Pressure hPa","Wind m/s"];
+  const keys=["test_rmse_phys_temperature","test_rmse_phys_humidity","test_rmse_phys_pressure","test_rmse_phys_wind_speed"];
+  mountChart("chart-target",{...BASE_OPTS,
+    chart:{...BASE_OPTS.chart,type:"bar",height:300},
+    series:[
+      {name:`Best classical (${prettyModel(c.model)})`,data:keys.map(k=>+(+c[k]).toFixed(2))},
+      {name:`Quantum (${prettyModel(q.model)})`,data:keys.map(k=>+(+q[k]).toFixed(2))}
+    ],
+    xaxis:{categories:cats,...AXIS},
+    yaxis:{title:{text:"error (real units)",style:{color:"#5A6373",fontWeight:600}},...AXIS},
+    colors:["#98A0AE","#2653F0"],
+    plotOptions:{bar:{columnWidth:"58%",borderRadius:4,dataLabels:{position:"top"}}},
+    dataLabels:{enabled:false},
+    legend:{position:"top",fontSize:"12px",labels:{colors:"#5A6373"}},
+    tooltip:{...BASE_OPTS.tooltip,y:{formatter:v=>`${v}`}}
+  });
+}
+
+/* readout lambda sweep */
+function renderReadout(list){
+  if(!list||!list.length){showNotRun("chart-readout","No readout sweep was saved for this run.");return}
+  const seen=new Map();
+  list.forEach(r=>{const l=+r.lambda; if(!seen.has(l))seen.set(l,+r.val_rmse_mean)});
+  const pts=[...seen.entries()].sort((a,b)=>a[0]-b[0]);
+  mountChart("chart-readout",{...BASE_OPTS,
+    chart:{...BASE_OPTS.chart,type:"area",height:300},
+    series:[{name:"val error",data:pts.map(p=>+p[1].toFixed(6))}],
+    xaxis:{categories:pts.map(p=>"λ="+p[0]),title:{text:"regularisation (λ)",style:{color:"#5A6373",fontWeight:600}},...AXIS},
+    yaxis:{decimalsInFloat:5,...AXIS},
+    stroke:{width:3,curve:"smooth"},
+    colors:["#2653F0"],
+    fill:{type:"gradient",gradient:{shadeIntensity:.5,opacityFrom:.22,opacityTo:.02}},
+    markers:{size:4,colors:["#2653F0"],strokeColors:"#fff"},
+    dataLabels:{enabled:false},
+    tooltip:{...BASE_OPTS.tooltip,y:{formatter:v=>`error ${(+v).toFixed(5)}`}}
+  });
+}
+
+/* config read-out */
+function renderConfig(cfg){
+  if(!cfg){showNotRun("config-slot","No config file found for this run.");return}
+  const shots=(cfg.shots==null?"exact (statevector)":cfg.shots);
+  const rows=[
+    ["Qubits",cfg.n_qubits],["J",cfg.J],["h",cfg.h],
+    ["Topology",cfg.topology],["Trotter steps",cfg.trotter_steps],
+    ["Evolution time",cfg.evolution_time],["Noise rate",cfg.noise_rate],
+    ["Shots",shots],["Feature dim",cfg.feature_dim],["Readout",cfg.readout_strategy]
+  ].filter(r=>r[1]!==undefined);
+  document.getElementById("config-slot").innerHTML=
+    `<div class="kv" style="width:100%">`+rows.map(r=>`<div class="row"><span>${r[0]}</span><b>${r[1]}</b></div>`).join("")+`</div>`;
+  document.getElementById("m-reservoir").textContent=`${cfg.n_qubits} qubits`;
+  document.getElementById("m-reservoir-sub").textContent=`${cfg.topology} · J ${cfg.J} · h ${cfg.h}`;
+}
+
 function renderLeaderboard(rows,slotId,mId,subId){
-  rows.sort((a,b)=>a.test_rmse_mean-b.test_rmse_mean);
-  const html=`<table><thead><tr><th>#</th><th>Model</th><th>Error ↓</th><th title="How long the forecast stays trustworthy — higher is better">Trust time ↑</th></tr></thead><tbody>`+
+  rows=rows.slice().sort((a,b)=>a.test_rmse_mean-b.test_rmse_mean);
+  const html=`<table><thead><tr><th>#</th><th>Model</th><th>Error ↓</th><th title="How long the forecast stays trustworthy. Higher is better">Trust time ↑</th></tr></thead><tbody>`+
     rows.map((r,i)=>{
-      const isQ=/qrc/i.test(r.model);
-      return `<tr class="${isQ?"qrc":""}">
+      const q=isQuantum(r.model);
+      const vpt=(r.vpt_lyapunov===""||r.vpt_lyapunov==null)?"—":(+r.vpt_lyapunov).toFixed(1);
+      return `<tr class="${q?"qrc":""}">
         <td class="${i===0?"rank1":""}">${i===0?"🏆":i+1}</td>
-        <td>${r.model}${isQ?'<span class="tag">QUANTUM</span>':''}</td>
+        <td>${prettyModel(r.model)}${q?'<span class="tag">QUANTUM</span>':''}</td>
         <td class="num">${(+r.test_rmse_mean).toFixed(4)}</td>
-        <td class="num">${r.vpt_lyapunov??"—"}</td></tr>`;
+        <td class="num">${vpt}</td></tr>`;
     }).join("")+"</tbody></table>";
   document.getElementById(slotId).innerHTML=html;
   const best=rows[0];
   if(best){
-    document.getElementById(mId).textContent=best.model;
+    document.getElementById(mId).textContent=prettyModel(best.model);
     document.getElementById(subId).textContent=`error ${(+best.test_rmse_mean).toFixed(4)}`;
   }
 }
+
 function setLive(live,demo){
   document.getElementById("live-dot").className="dot "+(live?"live":"idle");
   document.getElementById("live-text").textContent=live?"live":"waiting for repo";
@@ -617,33 +734,39 @@ function setLive(live,demo){
   document.getElementById("data-source-badge").textContent=demo?"demo data (repo not linked yet)":"live data";
 }
 
+/* ── main refresh: bind to the REAL results/ layout ── */
 async function refresh(){
   let anyLive=false;
+
+  // heatmap + best hamiltonian
   try{
-    const [csv,best]=await Promise.all([fetchText("hamiltonian_sweep.csv"),fetchJSON("best_hamiltonian.json").catch(()=>null)]);
+    const [csv,best]=await Promise.all([
+      fetchText("hamiltonian_sweep.csv"),
+      fetchJSON("best_hamiltonian.json").catch(()=>null)
+    ]);
     renderHeatmap(parseCSV(csv),best);anyLive=true;usingDemo=false;
   }catch(e){if(usingDemo)renderHeatmap(parseCSV(DEMO.hamiltonian),DEMO.bestHam)}
-  const specs=[
-    {file:"noise_sweep.csv",el:"chart-noise",xre:/p|noise/i,xt:"amount of noise",metric:true},
-    {file:"qubit_scaling.csv",el:"chart-qubits",xre:/qubit/i,xt:"number of qubits"},
-    {file:"shot_ablation.csv",el:"chart-shots",xre:/shot/i,xt:"measurements (shots)"}
-  ];
-  for(const s of specs){
-    try{
-      const rows=parseCSV(await fetchText(s.file));
-      const xk=Object.keys(rows[0]).find(k=>s.xre.test(k));
-      const yk=Object.keys(rows[0]).find(k=>/rmse/i.test(k));
-      renderLine(s.el,rows.map(r=>r[xk]),rows.map(r=>+r[yk].toFixed(4)),s.xt);
-      anyLive=true;
-      if(s.metric){
-        const best=rows.reduce((a,b)=>a[yk]<b[yk]?a:b);
-        document.getElementById("m-noise").textContent=best[xk];
-        document.getElementById("m-noise-sub").textContent=`error ${(+best[yk]).toFixed(4)}`;
-      }
-    }catch(e){}
-  }
-  try{renderLeaderboard(parseCSV(await fetchText("results_h6.csv")),"table-h6","m-best6","m-best6-sub");anyLive=true}catch(e){}
-  try{renderLeaderboard(parseCSV(await fetchText("results_h24.csv")),"table-h24","m-best24","m-best24-sub");anyLive=true}catch(e){}
+
+  // leaderboards (h6 also feeds the per-target chart)
+  let h6Rows=null;
+  try{h6Rows=parseCSV(await fetchText("results_h6.csv"));renderLeaderboard(h6Rows,"table-h6","m-best6","m-best6-sub");anyLive=true;usingDemo=false}
+  catch(e){if(usingDemo){h6Rows=DEMO.h6;renderLeaderboard(h6Rows,"table-h6","m-best6","m-best6-sub")}}
+
+  try{renderLeaderboard(parseCSV(await fetchText("results_h24.csv")),"table-h24","m-best24","m-best24-sub");anyLive=true;usingDemo=false}
+  catch(e){if(usingDemo)renderLeaderboard(DEMO.h24,"table-h24","m-best24","m-best24-sub")}
+
+  renderTargets(h6Rows||DEMO.h6);
+
+  // readout lambda sweep (h6)
+  try{renderReadout(await fetchJSON("h6/readout_selection.json"));anyLive=true;usingDemo=false}
+  catch(e){if(usingDemo)renderReadout(DEMO.readout)}
+
+  // run configuration (prefer warm-start, fall back to cold-start)
+  try{
+    const cfg=await fetchJSON("h6/warm_start_qrc_config.json").catch(()=>fetchJSON("h6/cold_start_qrc_config.json"));
+    renderConfig(cfg);anyLive=true;usingDemo=false;
+  }catch(e){if(usingDemo)renderConfig(DEMO.config)}
+
   setLive(anyLive&&!usingDemo,usingDemo);
 }
 refresh();
@@ -685,7 +808,7 @@ async function loadWeather(){
     document.getElementById("weather-time").textContent=
       "live · "+new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})+" your time · Open-Meteo";
   }catch(e){
-    document.getElementById("weather-time").textContent="weather feed unavailable — check connection";
+    document.getElementById("weather-time").textContent="weather feed unavailable, check your connection";
   }
 }
 loadWeather();
